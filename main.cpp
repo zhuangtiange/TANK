@@ -1,11 +1,35 @@
 #include <graphics.h>
+#include <conio.h>
 #include <Windows.h>
+
+
+
+enum DIRECTION
+{
+	UP,
+	DOWN,
+	LEFT,
+	RIGHT
+};
+
+struct tank_s
+{
+	int x;
+	int y;
+	DIRECTION direction;
+	int live;
+};
 
 void menu();
 void init_map();
+void play();
+int tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img);
+void set_prop_map(int x, int y, int val);
+
 
 int map[26][26] = 
 {
+	
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{ 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0},
@@ -31,8 +55,13 @@ int map[26][26] =
 	{ 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0},
 	{ 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0},
 	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	
 };
+
+
+
+
 
 int main()
 {
@@ -41,11 +70,11 @@ int main()
 
 	init_map();
 
+	play();
 
 
 
 
-	system("pause");
 	return 0;
 }
 
@@ -61,6 +90,7 @@ void menu()
 	//实现导航按钮
 	setlinecolor(WHITE);
 	setfillcolor(BLACK);
+
 	fillrectangle(230, 200, 310, 240);
 	settextstyle(25, 0, _T("宋体"));
 	outtextxy(240, 210, _T("说 明"));
@@ -129,5 +159,116 @@ void init_map()
 				map[i + 1][j + 1] = 4;
 			}
 		}
+	}
+}
+
+void set_prop_map(int x, int y,int val)
+{
+	map[y][x] = val;
+	map[y][x + 1] = val;
+	map[y + 1][x] = val;
+	map[y + 1][x + 1] = val;
+}
+
+int tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img)
+{
+	int new_x = tank->x;
+	int new_y = tank->y;
+
+	if (direction == UP)
+	{
+		new_y -= 1;
+	}else if (direction == DOWN)
+	{
+		new_y += 1;
+	}else if (direction == LEFT)
+	{
+		new_x -= 1;
+	}else if (direction == RIGHT)
+	{
+		new_x += 1;
+	}
+	else
+		return 0;
+
+	set_prop_map(tank->x, tank->y, 0);
+
+	setfillcolor(BLACK);
+	solidrectangle(tank->x * 25, tank->y * 25, tank->x * 25 + 50, tank->y * 25 + 50);
+
+	set_prop_map(new_x, new_y, 200);
+
+	tank->x = new_x;
+	tank->y = new_y;
+	
+	putimage(tank->x * 25, tank->y * 25, img);
+	return 1;
+}
+
+void play()
+{
+	tank_s my_tank;
+	IMAGE my_tank_img[4];
+	int key;
+
+	loadimage(&my_tank_img[UP], _T("tank_up.jpg"), 50, 50);
+	loadimage(&my_tank_img[DOWN], _T("tank_down.jpg"), 50, 50);
+	loadimage(&my_tank_img[LEFT], _T("tank_left.jpg"), 50, 50);
+	loadimage(&my_tank_img[RIGHT], _T("tank_right.jpg"), 50, 50);
+	my_tank.x = 8;
+	my_tank.y = 24;
+	my_tank.live = 1;
+	my_tank.direction = UP;
+	set_prop_map(my_tank.x, my_tank.y, 200);
+	putimage(my_tank.x * 25, my_tank.y * 25, &my_tank_img[my_tank.direction]);
+
+	while (true)
+	{
+		if (_kbhit())
+		{
+			key = _getch();
+			switch (key)
+			{
+			case 'a':
+				if ((my_tank.x-1) >=0 && map[my_tank.y][my_tank.x-1] == 0 && map[my_tank.y+1][my_tank.x-1] ==0)
+				{
+					my_tank.direction = LEFT;
+					tank_walk(&my_tank, LEFT, &my_tank_img[my_tank.direction]);
+				}
+				break;
+			case 'w':
+				if ((my_tank.y - 1) >= 0 && map[my_tank.y-1][my_tank.x ] == 0 && map[my_tank.y - 1][my_tank.x + 1] == 0)
+				{
+					my_tank.direction = UP;
+					tank_walk(&my_tank, UP, &my_tank_img[my_tank.direction]);
+				}
+				break;
+			case 's':
+				if ((my_tank.y + 2) <= 25 && map[my_tank.y + 2][my_tank.x] == 0 && map[my_tank.y + 2][my_tank.x + 1] == 0)
+				{
+					my_tank.direction = DOWN;
+					tank_walk(&my_tank, DOWN, &my_tank_img[my_tank.direction]);
+				}
+				break;
+			case 'd':
+				if ((my_tank.x+2) <=25 && map[my_tank.y][my_tank.x + 2] == 0 && map[my_tank.y + 1][my_tank.x + 2] == 0)
+				{
+					my_tank.direction = RIGHT;
+					tank_walk(&my_tank, RIGHT, &my_tank_img[my_tank.direction]);
+				}
+				break;
+			case 'j':
+
+				break;
+			case 'p':
+
+				system("pause");
+				break;
+			default:
+
+				break;
+			}
+		}
+		Sleep(10);
 	}
 }
