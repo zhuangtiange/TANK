@@ -1,9 +1,10 @@
 #include <graphics.h>
 #include <conio.h>
 #include <Windows.h>
-
+#include <time.h>
 
 #pragma comment (lib,"Winmm.lib")
+#define ENEMY_NUM 10
 enum DIRECTION
 {
 	UP,
@@ -33,9 +34,11 @@ struct bullet_s
 void menu();
 void init_map();
 void play();
-int tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step);
+int do_tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step);
 void set_prop_map(int x, int y, int val);
 void bullet_action(bullet_s *bullet);
+void tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img);
+DIRECTION enemy_direction(tank_s *tank, int x, int y);
 
 int map[26][26] = 
 {
@@ -180,7 +183,7 @@ void set_prop_map(int x, int y,int val)
 	map[y + 1][x + 1] = val;
 }
 
-int tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step)
+int do_tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step)
 {
 	int new_x = tank->x;
 	int new_y = tank->y;
@@ -224,6 +227,59 @@ int tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step)
 	return 1;
 }
 
+void tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img)
+{
+	switch (direction) {
+	case LEFT:
+		if (tank->direction == LEFT && (tank->x - 1) >= 0 && map[tank->y][tank->x - 1] == 0 && map[tank->y + 1][tank->x - 1] == 0)
+		{
+
+			do_tank_walk(tank, LEFT, img, 1);
+		}
+		else if (tank->direction != LEFT)
+		{
+			tank->direction = LEFT;
+			do_tank_walk(tank, LEFT,img, 0);
+		}
+		break;
+	case UP:
+		if (tank->direction == UP && (tank->y - 1) >= 0 && map[tank->y - 1][tank->x] == 0 && map[tank->y - 1][tank->x + 1] == 0)
+		{
+
+			do_tank_walk(tank, UP,img, 1);
+		}
+		else if (tank->direction != UP)
+		{
+			tank->direction = UP;
+			do_tank_walk(tank, UP,img, 0);
+		}
+		break;
+	case DOWN:
+		if (tank->direction == DOWN && (tank->y + 2) <= 25 && map[tank->y + 2][tank->x] == 0 && map[tank->y + 2][tank->x + 1] == 0)
+		{
+
+			do_tank_walk(tank, DOWN,img, 1);
+		}
+		else if (tank->direction != DOWN)
+		{
+			tank->direction = DOWN;
+			do_tank_walk(tank, DOWN,img, 0);
+		}
+		break;
+	case RIGHT:
+		if (tank->direction == RIGHT && (tank->x + 2) <= 25 && map[tank->y][tank->x + 2] == 0 && map[tank->y + 1][tank->x + 2] == 0)
+		{
+
+			do_tank_walk(tank, RIGHT,img, 1);
+		}
+		else if (tank->direction != RIGHT)
+		{
+			tank->direction = RIGHT;
+			do_tank_walk(tank, RIGHT,img, 0);
+		}
+		break;
+	}
+}
 
 void bullet_action(bullet_s *bullet)
 {
@@ -309,16 +365,92 @@ void bullet_action(bullet_s *bullet)
 	
 }
 
+DIRECTION enemy_direction(tank_s *tank, int x, int y)
+{
+	int r = rand() % 100;
+
+	if (tank->x > x)
+	{
+		if (tank->y > y)
+		{
+			if (r <= 50)
+				return UP;
+			else 
+				return LEFT;
+		}
+		else
+		{
+			if (r <= 50)
+				return DOWN;
+			else
+				return LEFT;
+		}
+	}
+	else
+	{
+		if (tank->y > y)
+		{
+			if (r <= 50)
+				return UP;
+			else
+				return RIGHT;
+		}
+		else
+		{
+			if (r <= 50)
+				return DOWN;
+			else
+				return RIGHT;
+		}
+	}
+}
 
 void play()
 {
+	tank_s enemy_tank[ENEMY_NUM];
+	bullet_s enemy_bullet[ENEMY_NUM];
+	IMAGE enemy_tank_img[4];
+	loadimage(&enemy_tank_img[UP], _T("enemy_tank_up.jpg"), 50, 50);
+	loadimage(&enemy_tank_img[DOWN], _T("enemy_tank_down.jpg"), 50, 50);
+	loadimage(&enemy_tank_img[LEFT], _T("enemy_tank_left.jpg"), 50, 50);
+	loadimage(&enemy_tank_img[RIGHT], _T("enemy_tank_right.jpg"), 50, 50);
+	for (int i = 0; i < ENEMY_NUM; i++)
+	{
+		if (i % 3 == 0)
+		{
+			enemy_tank[i].x = 0;
+		}
+		else if (i % 3 == 1)
+		{
+			enemy_tank[i].x = 12;
+		}
+		else if (i % 3 == 2)
+		{
+			enemy_tank[i].x = 24;
+		}
+		enemy_tank[i].y = 0;
+		enemy_tank[i].live = 1;
+		set_prop_map(enemy_tank[i].x, enemy_tank[i].y, 100 + i);
+		enemy_bullet[i].status = 0;
+		enemy_tank[i].direction = DOWN;
+
+		do_tank_walk(&enemy_tank[0], DOWN, &enemy_tank_img[DOWN], 0);
+		do_tank_walk(&enemy_tank[1], DOWN, &enemy_tank_img[DOWN], 0);
+		do_tank_walk(&enemy_tank[2], DOWN, &enemy_tank_img[DOWN], 0);
+
+	}
+
+
+
+
 	tank_s my_tank;
 	bullet_s my_bullet;
 	IMAGE my_tank_img[4];
 	int key;
-
+	int times = 0;
+	int enemy_total = 3;
+	srand(time(NULL));
 	my_bullet.status = 0;
-
 	loadimage(&my_tank_img[UP], _T("tank_up.jpg"), 50, 50);
 	loadimage(&my_tank_img[DOWN], _T("tank_down.jpg"), 50, 50);
 	loadimage(&my_tank_img[LEFT], _T("tank_left.jpg"), 50, 50);
@@ -338,52 +470,16 @@ void play()
 			switch (key)
 			{
 			case 'a':
-				if (my_tank.direction == LEFT && (my_tank.x-1) >=0 && map[my_tank.y][my_tank.x-1] == 0 && map[my_tank.y+1][my_tank.x-1] ==0)
-				{
-					
-					tank_walk(&my_tank, LEFT, &my_tank_img[my_tank.direction],1);
-				}
-				else if(my_tank.direction != LEFT)
-				{
-					my_tank.direction = LEFT;
-					tank_walk(&my_tank, LEFT, &my_tank_img[my_tank.direction], 0);
-				}
+				tank_walk(&my_tank, LEFT, &my_tank_img[LEFT]);
 				break;
 			case 'w':
-				if (my_tank.direction == UP && (my_tank.y - 1) >= 0 && map[my_tank.y-1][my_tank.x ] == 0 && map[my_tank.y - 1][my_tank.x + 1] == 0)
-				{
-					
-					tank_walk(&my_tank, UP, &my_tank_img[my_tank.direction],1);
-				}
-				else if (my_tank.direction != UP)
-				{
-					my_tank.direction = UP;
-					tank_walk(&my_tank, UP, &my_tank_img[my_tank.direction], 0);
-				}
+				tank_walk(&my_tank, UP, &my_tank_img[UP]);
 				break;
 			case 's':
-				if (my_tank.direction == DOWN && (my_tank.y + 2) <= 25 && map[my_tank.y + 2][my_tank.x] == 0 && map[my_tank.y + 2][my_tank.x + 1] == 0)
-				{
-					
-					tank_walk(&my_tank, DOWN, &my_tank_img[my_tank.direction],1);
-				}
-				else if (my_tank.direction != DOWN)
-				{
-					my_tank.direction = DOWN;
-					tank_walk(&my_tank, DOWN, &my_tank_img[my_tank.direction], 0);
-				}
+				tank_walk(&my_tank, DOWN, &my_tank_img[DOWN]);
 				break;
 			case 'd':
-				if (my_tank.direction == RIGHT && (my_tank.x+2) <=25 && map[my_tank.y][my_tank.x + 2] == 0 && map[my_tank.y + 1][my_tank.x + 2] == 0)
-				{
-					
-					tank_walk(&my_tank, RIGHT, &my_tank_img[my_tank.direction],1);
-				}
-				else if (my_tank.direction != RIGHT)
-				{
-					my_tank.direction = RIGHT;
-					tank_walk(&my_tank, RIGHT, &my_tank_img[my_tank.direction], 0);
-				}
+				tank_walk(&my_tank, RIGHT, &my_tank_img[RIGHT]);
 				break;
 			case 'j':
 				if (my_bullet.status == 0)
@@ -421,11 +517,43 @@ void play()
 				break;
 			}
 		}
+
+		
+			if (times % 200 == 0)
+			{
+				for (int i = 0; i < enemy_total; i++)
+				{
+					if (i % 2 == 0)
+					{
+						DIRECTION d = enemy_direction(&enemy_tank[i], 12, 24);
+						tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
+					}
+					else
+					{
+						DIRECTION d = enemy_direction(&enemy_tank[i], my_tank.x, my_tank.y);
+						tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
+					}
+				}
+			}
+			else
+				if (times % 50 == 0)
+				{
+					for (int i = 0; i < enemy_total; i++)
+					{
+						if (enemy_tank[i].live == 1)
+						{
+							tank_walk(&enemy_tank[i], enemy_tank[i].direction, &enemy_tank_img[enemy_tank[i].direction]);
+						}
+
+					}
+				}
+		
 		if (my_bullet.status == 1)
 		{
 			bullet_action(&my_bullet);
 		}
 		
 		Sleep(10);
+		times++;
 	}
 }
