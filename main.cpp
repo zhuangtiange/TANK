@@ -36,9 +36,10 @@ void init_map();
 void play();
 int do_tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step);
 void set_prop_map(int x, int y, int val);
-void bullet_action(bullet_s *bullet);
+int bullet_action(bullet_s *bullet,tank_s * enemy_tank);
 void tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img);
 DIRECTION enemy_direction(tank_s *tank, int x, int y);
+void tank_fire(tank_s *tank, bullet_s *bullet,int need_sound);
 
 int map[26][26] = 
 {
@@ -187,6 +188,7 @@ int do_tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step)
 {
 	int new_x = tank->x;
 	int new_y = tank->y;
+	int old_prop = map[tank->y][tank->x];
 	if (step == 1)
 	{
 		if (direction == UP)
@@ -214,9 +216,9 @@ int do_tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step)
 
 	setfillcolor(BLACK);
 	solidrectangle(tank->x * 25, tank->y * 25, tank->x * 25 + 50, tank->y * 25 + 50);
-	if (step)
+	if (step == 1)
 	{
-		set_prop_map(new_x, new_y, 200);
+		set_prop_map(new_x, new_y, old_prop);
 
 		tank->x = new_x;
 		tank->y = new_y;
@@ -281,7 +283,42 @@ void tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img)
 	}
 }
 
-void bullet_action(bullet_s *bullet)
+void tank_fire(tank_s *tank, bullet_s *bullet, int need_sound)
+{
+	if (bullet->status == 0)
+	{
+		if (need_sound)
+		{
+			PlaySound(_T("paoji.wav"), NULL, SND_FILENAME | SND_ASYNC);
+		}
+		
+		if (tank->direction == UP)
+		{
+			bullet->pos_x = tank->x * 25 + 23;
+			bullet->pos_y = tank->y * 25 - 3;
+		}
+		else if (tank->direction == LEFT)
+		{
+			bullet->pos_x = tank->x * 25 - 3;
+			bullet->pos_y = tank->y * 25 + 23;
+		}
+		else if (tank->direction == DOWN)
+		{
+			bullet->pos_x = tank->x * 25 + 23;
+			bullet->pos_y = tank->y * 25 + 50;
+		}
+		else if (tank->direction == RIGHT)
+		{
+			bullet->pos_x = tank->x * 25 + 50;
+			bullet->pos_y = tank->y * 25 + 23;
+		}
+		bullet->direction = tank->direction;
+		bullet->status = 1;
+	}
+}
+
+
+int bullet_action(bullet_s *bullet, tank_s * enemy_tank)
 {
 	int x; int y; int x1; int y1;
 
@@ -317,20 +354,44 @@ void bullet_action(bullet_s *bullet)
 	}
 	else
 	{
-		return;
+		return 0;
 	}
 
 	if (bullet->pos_x < 0 || bullet->pos_x>650 || bullet->pos_y > 650 || bullet->pos_y < 0)
 	{
 		bullet->status = 0;
-		return;
+		return 0;
 	}
 
 	if (map[y][x] == 4 || map[y1][x1] == 4)
 	{
-		return;
-	}
 
+		return 1;
+	}
+	if (map[y][x] == 200 || map[y1][x1] == 200)
+	{
+
+		return 1;
+	}
+	
+	if (map[y][x] >= 100 && map[y][x] <= 109 || map[y1][x1] >= 100 && map[y1][x1] <= 109)
+	{
+		tank_s *tank = NULL;
+		bullet->status = 0;
+
+		if (map[y][x] >= 100 && map[y][x] <= 109)
+		{
+			tank = enemy_tank + (map[y][x] - 100);
+		}
+		else
+		{
+			tank = enemy_tank + (map[y1][x1] - 100);
+		}
+		tank->live = 0;
+		set_prop_map(tank->x, tank->y, 0);
+		setfillcolor(BLACK);
+		solidrectangle(tank->x * 25, tank->y * 25, tank->x * 25 + 50, tank->y * 25 + 50);
+	}
 	
 	if (map[y][x] == 1 )
 	{
@@ -430,16 +491,16 @@ void play()
 		}
 		enemy_tank[i].y = 0;
 		enemy_tank[i].live = 1;
-		set_prop_map(enemy_tank[i].x, enemy_tank[i].y, 100 + i);
+		//set_prop_map(enemy_tank[i].x, enemy_tank[i].y, 100 + i);
 		enemy_bullet[i].status = 0;
 		enemy_tank[i].direction = DOWN;
-
-		do_tank_walk(&enemy_tank[0], DOWN, &enemy_tank_img[DOWN], 0);
-		do_tank_walk(&enemy_tank[1], DOWN, &enemy_tank_img[DOWN], 0);
-		do_tank_walk(&enemy_tank[2], DOWN, &enemy_tank_img[DOWN], 0);
-
 	}
-
+	do_tank_walk(&enemy_tank[0], DOWN, &enemy_tank_img[DOWN], 0);
+	set_prop_map(enemy_tank[0].x, enemy_tank[0].y, 100);
+	do_tank_walk(&enemy_tank[1], DOWN, &enemy_tank_img[DOWN], 0);
+	set_prop_map(enemy_tank[1].x, enemy_tank[1].y, 101);
+	do_tank_walk(&enemy_tank[2], DOWN, &enemy_tank_img[DOWN], 0);
+	set_prop_map(enemy_tank[2].x, enemy_tank[2].y, 102);
 
 
 
@@ -462,6 +523,8 @@ void play()
 	set_prop_map(my_tank.x, my_tank.y, 200);
 	putimage(my_tank.x * 25, my_tank.y * 25, &my_tank_img[my_tank.direction]);
 
+
+
 	while (true)
 	{
 		if (_kbhit())
@@ -482,31 +545,7 @@ void play()
 				tank_walk(&my_tank, RIGHT, &my_tank_img[RIGHT]);
 				break;
 			case 'j':
-				if (my_bullet.status == 0)
-				{
-					PlaySound(_T("paoji.wav"), NULL, SND_FILENAME | SND_ASYNC);
-					if (my_tank.direction == UP)
-					{
-						my_bullet.pos_x = my_tank.x * 25 + 23;
-						my_bullet.pos_y = my_tank.y * 25 - 3;
-					}else if (my_tank.direction == LEFT)
-					{
-						my_bullet.pos_x = my_tank.x * 25 - 3;
-						my_bullet.pos_y = my_tank.y * 25 + 23;
-					}
-					else if (my_tank.direction == DOWN)
-					{
-						my_bullet.pos_x = my_tank.x * 25 + 23;
-						my_bullet.pos_y = my_tank.y * 25 + 50;
-					}
-					else if (my_tank.direction == RIGHT)
-					{
-						my_bullet.pos_x = my_tank.x * 25 + 50;
-						my_bullet.pos_y = my_tank.y * 25 + 23;
-					}
-					my_bullet.direction = my_tank.direction;
-					my_bullet.status = 1;
-				}
+				tank_fire(&my_tank,&my_bullet,1);
 				break;
 			case 'p':
 
@@ -518,11 +557,18 @@ void play()
 			}
 		}
 
-		
+		if (times > 0 && times % 1000 == 0 && enemy_total < ENEMY_NUM)
+		{
+
+			set_prop_map(enemy_tank[enemy_total].x, enemy_tank[enemy_total].y, 100 + enemy_total);
+			enemy_total++;
+		}
 			if (times % 200 == 0)
 			{
 				for (int i = 0; i < enemy_total; i++)
 				{
+					if (enemy_tank[i].live == 0)
+						continue;
 					if (i % 2 == 0)
 					{
 						DIRECTION d = enemy_direction(&enemy_tank[i], 12, 24);
@@ -533,6 +579,7 @@ void play()
 						DIRECTION d = enemy_direction(&enemy_tank[i], my_tank.x, my_tank.y);
 						tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
 					}
+					tank_fire(&enemy_tank[i], &enemy_bullet[i],0);
 				}
 			}
 			else
@@ -550,9 +597,26 @@ void play()
 		
 		if (my_bullet.status == 1)
 		{
-			bullet_action(&my_bullet);
+			bullet_action(&my_bullet, enemy_tank);
 		}
-		
+		for (int i = 0; i < ENEMY_NUM; i++)
+		{
+			if (enemy_bullet[i].status == 1)
+			{
+				bullet_action(&enemy_bullet[i], enemy_tank);
+			}
+				
+		}
+		int isWin = 1;
+		for (int i = 0; i < ENEMY_NUM; i++)
+		{
+			if (enemy_tank[i].live == 1)
+				isWin = 0;
+		}
+		if (isWin)
+		{
+			return;
+		}
 		Sleep(10);
 		times++;
 	}
