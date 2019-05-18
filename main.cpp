@@ -5,6 +5,9 @@
 
 #pragma comment (lib,"Winmm.lib")
 #define ENEMY_NUM 10
+#define SUCCESS 0
+#define FAILURE 1
+
 enum DIRECTION
 {
 	UP,
@@ -33,13 +36,14 @@ struct bullet_s
 
 void menu();
 void init_map();
-void play();
+int play();
 int do_tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img, int step);
 void set_prop_map(int x, int y, int val);
 int bullet_action(bullet_s *bullet,tank_s * enemy_tank);
 void tank_walk(tank_s *tank, DIRECTION direction, IMAGE *img);
 DIRECTION enemy_direction(tank_s *tank, int x, int y);
 void tank_fire(tank_s *tank, bullet_s *bullet,int need_sound);
+void game_over(int result);
 
 int map[26][26] = 
 {
@@ -79,16 +83,17 @@ int map[26][26] =
 
 int main()
 {
+	int result = SUCCESS;
 	initgraph(650, 650);//»­²¼
 	menu();
 
 	init_map();
 
-	play();
+	result = play();
 
+	game_over(result);
 
-
-
+	system("pause");
 	return 0;
 }
 
@@ -423,7 +428,7 @@ int bullet_action(bullet_s *bullet, tank_s * enemy_tank)
 		setfillcolor(WHITE);
 		solidrectangle(bullet->pos_x, bullet->pos_y, bullet->pos_x + 3, bullet->pos_y + 3);
 	}
-	
+	return 0;
 }
 
 DIRECTION enemy_direction(tank_s *tank, int x, int y)
@@ -466,7 +471,7 @@ DIRECTION enemy_direction(tank_s *tank, int x, int y)
 	}
 }
 
-void play()
+int play()
 {
 	tank_s enemy_tank[ENEMY_NUM];
 	bullet_s enemy_bullet[ENEMY_NUM];
@@ -502,7 +507,8 @@ void play()
 	do_tank_walk(&enemy_tank[2], DOWN, &enemy_tank_img[DOWN], 0);
 	set_prop_map(enemy_tank[2].x, enemy_tank[2].y, 102);
 
-
+	mciSendString(_T("open background.wav alias a1 wait"), NULL, 0, NULL);
+	mciSendString(_T("play a1"), 0, 0, 0);
 
 	tank_s my_tank;
 	bullet_s my_bullet;
@@ -563,50 +569,58 @@ void play()
 			set_prop_map(enemy_tank[enemy_total].x, enemy_tank[enemy_total].y, 100 + enemy_total);
 			enemy_total++;
 		}
-			if (times % 200 == 0)
+		if (times % 200 == 0)
+		{
+			for (int i = 0; i < enemy_total; i++)
+			{
+				if (enemy_tank[i].live == 0)
+					continue;
+				if (i % 2 == 0)
+				{
+					DIRECTION d = enemy_direction(&enemy_tank[i], 12, 24);
+					tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
+				}
+				else
+				{
+					DIRECTION d = enemy_direction(&enemy_tank[i], my_tank.x, my_tank.y);
+					tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
+				}
+				tank_fire(&enemy_tank[i], &enemy_bullet[i],0);
+			}
+		}
+		else if (times % 50 == 0)
 			{
 				for (int i = 0; i < enemy_total; i++)
 				{
-					if (enemy_tank[i].live == 0)
-						continue;
-					if (i % 2 == 0)
+					if (enemy_tank[i].live == 1)
 					{
-						DIRECTION d = enemy_direction(&enemy_tank[i], 12, 24);
-						tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
+						tank_walk(&enemy_tank[i], enemy_tank[i].direction, &enemy_tank_img[enemy_tank[i].direction]);
 					}
-					else
-					{
-						DIRECTION d = enemy_direction(&enemy_tank[i], my_tank.x, my_tank.y);
-						tank_walk(&enemy_tank[i], d, &enemy_tank_img[d]);
-					}
-					tank_fire(&enemy_tank[i], &enemy_bullet[i],0);
+
 				}
 			}
-			else
-				if (times % 50 == 0)
-				{
-					for (int i = 0; i < enemy_total; i++)
-					{
-						if (enemy_tank[i].live == 1)
-						{
-							tank_walk(&enemy_tank[i], enemy_tank[i].direction, &enemy_tank_img[enemy_tank[i].direction]);
-						}
-
-					}
-				}
 		
 		if (my_bullet.status == 1)
 		{
-			bullet_action(&my_bullet, enemy_tank);
+			if (bullet_action(&my_bullet, enemy_tank))
+			{
+				return FAILURE;
+			}
+				
 		}
 		for (int i = 0; i < ENEMY_NUM; i++)
 		{
 			if (enemy_bullet[i].status == 1)
 			{
-				bullet_action(&enemy_bullet[i], enemy_tank);
+				if (bullet_action(&enemy_bullet[i], enemy_tank))
+				{
+					return FAILURE;
+				}
+					
 			}
 				
 		}
+		
 		int isWin = 1;
 		for (int i = 0; i < ENEMY_NUM; i++)
 		{
@@ -615,9 +629,26 @@ void play()
 		}
 		if (isWin)
 		{
-			return;
+			return SUCCESS;
 		}
 		Sleep(10);
 		times++;
 	}
+}
+
+void game_over(int result)
+{
+	IMAGE img;
+	if (result == SUCCESS)
+	{
+		loadimage(&img, _T("success.jpg"), 500, 250);
+		putimage(80, 200, &img);
+
+	}
+	else if (result == FAILURE)
+	{
+		loadimage(&img, _T("failure.jpg"), 500, 250);
+		putimage(80, 200, &img);
+	}
+	_getch();
 }
